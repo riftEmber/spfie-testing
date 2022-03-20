@@ -19,10 +19,13 @@ PROCESSED_SRC_DIR=processed
 TEMP_PREFIX=tmp_
 mkdir $PROCESSED_SRC_DIR
 for i in `cat utilities/benchmark_list`; do
-    echo "processing file $i";
+    KERNEL=$(basename $i .c)
+    echo "processing kernel $KERNEL";
     perl utilities/create_cpped_version.pl $i "$PARGS";
-    mv $(dirname $i)/$(basename $i .c).preproc.c $i
-    mv $i $PROCESSED_SRC_DIR
+    mv $(dirname $i)/$(basename $i .c).preproc.c $PROCESSED_SRC_DIR/$KERNEL.orig.c
+    # while read -r line; do
+        # echo -e "$line\n"
+    # done <$file
     # TMP_FILE_NAME=$(dirname $i)/tmp_$(basename $i);
     # cat utilities/polybench.c $i > $TMP_FILE_NAME;
     # gcc -I utilities -I $(dirname $i) utilities/polybench.c $TMP_FILE_NAME -E > $PROCESSED_SRC_DIR/$(basename $i);
