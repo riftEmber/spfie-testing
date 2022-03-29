@@ -10,6 +10,7 @@ POLYBENCH_TAR = "polybench-c-4.2.tar.gz"
 POLYBENCH_TAR_SHA256 = "ecf1546d84ff4dc4ff02a8ad4b303ff15c6fd0940fccb37fd9dfb2eb223fe8b3"
 POLYBENCH_DIR = "polybench-c-4.2"
 PROCESSED_SRC_DIR = "processed"
+TMP_KERNEL_FILE = r"tmp_kernel.c"
 
 
 def main():
@@ -27,7 +28,8 @@ def main():
     os.mkdir(PROCESSED_SRC_DIR)
     with open("utilities/benchmark_list") as benchmark_list:
         for benchmark in benchmark_list:
-            kernel_name = benchmark.split('/')[-1].rstrip().removesuffix(".c")
+            # kernel_name = benchmark.split('/')[-1].rstrip().removesuffix(".c")
+            kernel_name = benchmark.split('/')[-1].rstrip()[:-2]
             kernel_path = '/'.join(benchmark.split('/')[:-1])
             print(f"Processing kernel '{kernel_name}' in {kernel_path}")
 
@@ -63,6 +65,14 @@ def main():
                     end_line = line_number + 1
 
                 kernel_snippet = "".join(preprocessed_lines[start_line:end_line])
+                print("original: " + kernel_snippet)
+                with open(TMP_KERNEL_FILE, "w") as tmp_file:
+                    tmp_file.write(kernel_snippet)
+                spfie_output = subprocess.run(
+                    f"../../build/bin/spf-ie {TMP_KERNEL_FILE} --entry-point {kernel_function_name}".split(),
+                    capture_output=True)
+                optimized_snippet = spfie_output.stderr.decode()
+                print("optimized: " + optimized_snippet)
 
 
 def run_cmd(command):
