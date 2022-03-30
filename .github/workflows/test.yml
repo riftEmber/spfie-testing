@@ -13,4 +13,4 @@ jobs:
       run: docker build -t app .
 
     - name: run image
-      run: docker run -it --rm app
+      run: docker run --rm app
