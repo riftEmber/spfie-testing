@@ -3,7 +3,7 @@ FROM riftember/spf-ie:latest
 RUN git rev-parse --short HEAD
 
 RUN apt update && \
-    apt install -y python3
+    apt install -y python3 time
 
 COPY . .
 

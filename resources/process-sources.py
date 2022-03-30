@@ -5,12 +5,13 @@ import os
 import sys
 import hashlib
 
-DEBUG = True
+DEBUG = False
 
 POLYBENCH_TAR = "polybench-c-4.2.tar.gz"
 POLYBENCH_TAR_SHA256 = "ecf1546d84ff4dc4ff02a8ad4b303ff15c6fd0940fccb37fd9dfb2eb223fe8b3"
 POLYBENCH_DIR = "polybench-c-4.2"
 PROCESSED_SRC_DIR = "processed"
+BIN_OUTPUT_DIR = "bin"
 TMP_KERNEL_FILE = r"tmp_kernel.c"
 
 
@@ -27,6 +28,7 @@ def main():
         sys.exit(f"Sources directory {POLYBENCH_DIR} does not exist, quitting")
     os.chdir(POLYBENCH_DIR)
     os.mkdir(PROCESSED_SRC_DIR)
+    os.mkdir(BIN_OUTPUT_DIR)
     with open("utilities/benchmark_list") as benchmark_list:
         benchmark_list = benchmark_list.readlines()
         num_benchmarks = len(benchmark_list)
@@ -80,15 +82,25 @@ def main():
                 preamble = "".join(source_kernel_lines[:body_start_line])
                 postamble = "".join(source_kernel_lines[body_end_line:])
 
-                with open(f"{kernel_name}.orig.c", "w") as original_file:
+                with open(f"{PROCESSED_SRC_DIR}/{kernel_name}.orig.c", "w+") as original_file:
                     original_file.write(preamble + kernel_snippet + postamble)
-                with open(f"{kernel_name}.opt.c", "w") as optimized_file:
-                    original_file.write(preamble + optimized_snippet + postamble)
+                    original_binary = f"{BIN_OUTPUT_DIR}/{kernel_name}_orig"
+                    run_cmd(f"gcc -I utilities -I {kernel_path} utilities/polybench.c {kernel_path}/{kernel_name}.c -o {original_binary}")
+                with open(f"{PROCESSED_SRC_DIR}/{kernel_name}.opt.c", "w") as optimized_file:
+                    optimized_file.write(preamble + optimized_snippet + postamble)
+                    optimized_binary = f"{BIN_OUTPUT_DIR}/{kernel_name}_opt"
+                    run_cmd(f"gcc -I utilities -I {kernel_path} utilities/polybench.c {kernel_path}/{kernel_name}.c -o {optimized_binary}")
+
+                print(f"Timing default {kernel_name} kernel...")
+                run_cmd(f"time {original_binary}")
+                print(f"Timing spf-ie'd {kernel_name} kernel...")
+                run_cmd(f"time {optimized_binary}")
         print(f"{num_benchmarks} benchmarks processed, {num_benchmarks - failure_count} succeeded, {failure_count} failed")
 
 
 def run_cmd(command):
-    subprocess.run(command.split())
+    cmd_result = subprocess.run(command.split())
+    cmd_result.check_returncode()
 
 
 def print_debug(msg):
