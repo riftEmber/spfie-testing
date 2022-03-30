@@ -1,0 +1,16 @@
+name: Run spf-ie testing script
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: build image
+      run: docker build -t app .
+
+    - name: run image
+      run: docker run --rm app
