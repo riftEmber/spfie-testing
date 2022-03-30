@@ -9,9 +9,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: install docker
-      run: >
-        sudo apt-get install docker
     - name: build image
       run: docker build -t app .
 
