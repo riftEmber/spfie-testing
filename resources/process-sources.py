@@ -82,24 +82,38 @@ def main():
                 preamble = "".join(source_kernel_lines[:body_start_line])
                 postamble = "".join(source_kernel_lines[body_end_line:])
 
+                # remove signature from kernel snippet
+                body_start_line = find_next_instance_line(kernel_snippet_lines, 0, "{")
+                kernel_snippet_no_signature = "".join(kernel_snippet_lines[body_start_line:])
+
+                # create unoptimized and optimized source files
+                print_debug("writing original and optimized source files")
                 with open(f"{PROCESSED_SRC_DIR}/{kernel_name}.orig.c", "w+") as original_file:
-                    original_file.write(preamble + kernel_snippet + postamble)
-                    original_binary = f"{BIN_OUTPUT_DIR}/{kernel_name}_orig"
-                    run_cmd(f"gcc -I utilities -I {kernel_path} utilities/polybench.c {kernel_path}/{kernel_name}.c -o {original_binary}")
+                    original_file.write(preamble + kernel_snippet_no_signature + postamble)
                 with open(f"{PROCESSED_SRC_DIR}/{kernel_name}.opt.c", "w") as optimized_file:
                     optimized_file.write(preamble + optimized_snippet + postamble)
-                    optimized_binary = f"{BIN_OUTPUT_DIR}/{kernel_name}_opt"
-                    run_cmd(f"gcc -I utilities -I {kernel_path} utilities/polybench.c {kernel_path}/{kernel_name}.c -o {optimized_binary}")
 
+                # compile files
+                print_debug("compiling executables")
+                optimized_binary = f"{BIN_OUTPUT_DIR}/{kernel_name}_opt"
+                original_binary = f"{BIN_OUTPUT_DIR}/{kernel_name}_orig"
+                run_cmd(
+                    f"gcc -I utilities -I {kernel_path} utilities/polybench.c {PROCESSED_SRC_DIR}/{kernel_name}.orig.c -o {original_binary}")
+                run_cmd(
+                    f"gcc -I utilities -I {kernel_path} utilities/polybench.c {PROCESSED_SRC_DIR}/{kernel_name}.opt.c -o {optimized_binary}")
+
+                # execute binaries
                 print(f"Timing default {kernel_name} kernel...")
                 run_cmd(f"time {original_binary}")
                 print(f"Timing spf-ie'd {kernel_name} kernel...")
                 run_cmd(f"time {optimized_binary}")
-        print(f"{num_benchmarks} benchmarks processed, {num_benchmarks - failure_count} succeeded, {failure_count} failed")
+        print(
+            f"{num_benchmarks} benchmarks processed, {num_benchmarks - failure_count} succeeded, {failure_count} failed")
 
 
 def run_cmd(command):
-    cmd_result = subprocess.run(command.split())
+    cmd_result = subprocess.run(command.split(),
+                                capture_output=True)
     cmd_result.check_returncode()
 
 
@@ -129,7 +143,7 @@ def find_next_instance_line(lines, start_line, target):
         else:
             line_number += 1
     if line_number >= len(lines):
-        sys.exit(f"Could not find end of current kernel function!")
+        sys.exit(f"Could not find next instance of {target} in current kernel!")
     else:
         return line_number + 1
 
