@@ -5,7 +5,7 @@ import os
 import sys
 import hashlib
 
-DEBUG = False
+DEBUG = True
 
 POLYBENCH_TAR = "polybench-c-4.2.tar.gz"
 POLYBENCH_TAR_SHA256 = "ecf1546d84ff4dc4ff02a8ad4b303ff15c6fd0940fccb37fd9dfb2eb223fe8b3"
@@ -41,43 +41,25 @@ def main():
 
             # generate macro-free benchmark
             run_cmd(f"perl utilities/create_cpped_version.pl {benchmark} -I utilities -DPOLYBENCH_USE_C99_PROTO")
+
+            # get original and optimized kernel snippets
             kernel_function_name = "kernel_" + kernel_name.replace('-', '_')
-            print_debug(f"searching for fucntion {kernel_function_name}")
+            print_debug(f"searching for function {kernel_function_name}")
             with open(f"{kernel_path}/{kernel_name}.preproc.c") as preprocessed:
                 preprocessed_lines = preprocessed.readlines()
-                line_number = 1
 
-                # find beginning of function
-                for line in preprocessed_lines:
-                    if kernel_function_name in line:
-                        break
-                    else:
-                        line_number += 1
-                if line_number >= len(preprocessed_lines):
-                    sys.exit(f"Could not find kernel function '{kernel_function_name}'!")
-                else:
-                    start_line = line_number - 1
-                    print_debug(f"found on line {line_number}/{len(preprocessed_lines)}")
-
-                # find end of function
-                for line in preprocessed_lines[line_number:]:
-                    if line.rstrip() == "}":
-                        break
-                    else:
-                        line_number += 1
-                if line_number >= len(preprocessed_lines):
-                    sys.exit(f"Could not find end of kernel function '{kernel_function_name}'!")
-                else:
-                    end_line = line_number + 1
+                # extract original kernel
+                start_line = find_kernel_start(preprocessed_lines, kernel_function_name)
+                end_line = find_next_instance_line(preprocessed_lines, start_line, "}")
                 kernel_snippet_lines = [x for x in preprocessed_lines[start_line:end_line] if "pragma" not in x]
                 kernel_snippet = "".join(kernel_snippet_lines)
                 print_debug("original: " + kernel_snippet)
+
                 with open(TMP_KERNEL_FILE, "w") as tmp_file:
                     tmp_file.write(kernel_snippet)
                 spfie_run_output = subprocess.run(
                     f"../../build/bin/spf-ie {TMP_KERNEL_FILE} --entry-point {kernel_function_name}".split(),
                     capture_output=True)
-                # spfie_run_output.check_returncode()
                 if spfie_run_output.returncode != 0:
                     print(f"spf-ie run on kernel '{kernel_name}' had exit code of {spfie_run_output.returncode}")
                     print_debug("spf-ie stderr:")
@@ -88,6 +70,20 @@ def main():
                     continue
                 optimized_snippet = spfie_run_output.stdout.decode()
                 print_debug("optimized: " + optimized_snippet)
+            # generate kernel files with original and optimized snippets
+            with open(f"{kernel_path}/{kernel_name}.c") as source_kernel_file:
+                # get source code on either side of kernel body
+                source_kernel_lines = source_kernel_file.readlines()
+                declaration_start_line = find_kernel_start(source_kernel_lines, kernel_function_name)
+                body_start_line = find_next_instance_line(source_kernel_lines, declaration_start_line, "{")
+                body_end_line = find_next_instance_line(source_kernel_lines, body_start_line, "}")
+                preamble = "".join(source_kernel_lines[:body_start_line])
+                postamble = "".join(source_kernel_lines[body_end_line:])
+
+                with open(f"{kernel_name}.orig.c", "w") as original_file:
+                    original_file.write(preamble + kernel_snippet + postamble)
+                with open(f"{kernel_name}.opt.c", "w") as optimized_file:
+                    original_file.write(preamble + optimized_snippet + postamble)
         print(f"{num_benchmarks} benchmarks processed, {num_benchmarks - failure_count} succeeded, {failure_count} failed")
 
 
@@ -98,6 +94,32 @@ def run_cmd(command):
 def print_debug(msg):
     if DEBUG:
         print("debug: " + msg)
+
+
+def find_kernel_start(lines, name):
+    line_number = 0
+    for line in lines:
+        if name in line:
+            break
+        else:
+            line_number += 1
+    if line_number >= len(lines):
+        sys.exit(f"Could not find kernel function '{name}'!")
+    else:
+        return line_number - 1
+
+
+def find_next_instance_line(lines, start_line, target):
+    line_number = start_line
+    for line in lines[start_line:]:
+        if line.rstrip() == target:
+            break
+        else:
+            line_number += 1
+    if line_number >= len(lines):
+        sys.exit(f"Could not find end of current kernel function!")
+    else:
+        return line_number + 1
 
 
 main()
