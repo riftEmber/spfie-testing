@@ -5,7 +5,7 @@ import os
 import sys
 import hashlib
 
-DEBUG = False
+DEBUG = True
 
 POLYBENCH_TAR = "polybench-c-4.2.tar.gz"
 POLYBENCH_TAR_SHA256 = "ecf1546d84ff4dc4ff02a8ad4b303ff15c6fd0940fccb37fd9dfb2eb223fe8b3"
@@ -29,6 +29,12 @@ def main():
     os.chdir(POLYBENCH_DIR)
     os.mkdir(PROCESSED_SRC_DIR)
     os.mkdir(BIN_OUTPUT_DIR)
+
+    t_declarations = ""
+    for i in range(10):
+        t_declarations += f"int t{i};\n"
+    t_declarations += "\n"
+
     with open("utilities/benchmark_list") as benchmark_list:
         benchmark_list = benchmark_list.readlines()
         num_benchmarks = len(benchmark_list)
@@ -70,7 +76,7 @@ def main():
                     failure_count += 1
                     # sys.exit()
                     continue
-                optimized_snippet = spfie_run_output.stdout.decode()
+                optimized_snippet = t_declarations + spfie_run_output.stdout.decode()
                 print_debug("optimized: " + optimized_snippet)
             # generate kernel files with original and optimized snippets
             with open(f"{kernel_path}/{kernel_name}.c") as source_kernel_file:
@@ -114,7 +120,9 @@ def main():
 def run_cmd(command):
     cmd_result = subprocess.run(command.split(),
                                 capture_output=True)
-    cmd_result.check_returncode()
+    if cmd_result.returncode != 0:
+        print("Failed cmd stderr: " + cmd_result.stderr.decode())
+        cmd_result.check_returncode()
 
 
 def print_debug(msg):
