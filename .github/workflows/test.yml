@@ -9,6 +9,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: pull latest spf-ie
+      run: docker pull riftember/spf-ie:latest
+
     - name: build image
       run: docker build -t app .
 
