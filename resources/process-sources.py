@@ -5,7 +5,7 @@ import os
 import sys
 import hashlib
 
-DEBUG = True
+DEBUG = False
 
 POLYBENCH_TAR = "polybench-c-4.2.tar.gz"
 POLYBENCH_TAR_SHA256 = "ecf1546d84ff4dc4ff02a8ad4b303ff15c6fd0940fccb37fd9dfb2eb223fe8b3"
@@ -61,7 +61,7 @@ def main():
                 end_line = find_next_instance_line(preprocessed_lines, start_line, "}")
                 kernel_snippet_lines = [x for x in preprocessed_lines[start_line:end_line] if "pragma" not in x]
                 kernel_snippet = "".join(kernel_snippet_lines)
-                print_debug("original: " + kernel_snippet)
+                print_debug("original:\n" + kernel_snippet)
 
                 with open(TMP_KERNEL_FILE, "w") as tmp_file:
                     tmp_file.write(kernel_snippet)
@@ -70,14 +70,14 @@ def main():
                     capture_output=True)
                 if spfie_run_output.returncode != 0:
                     print(f"spf-ie run on kernel '{kernel_name}' had exit code of {spfie_run_output.returncode}")
-                    print_debug("spf-ie stderr:")
-                    print_debug(spfie_run_output.stderr.decode())
+                    print("spf-ie stderr:")
+                    print(spfie_run_output.stderr.decode())
                     print(f"skipping kernel {kernel_name}")
                     failure_count += 1
                     # sys.exit()
                     continue
                 optimized_snippet = t_declarations + spfie_run_output.stdout.decode()
-                print_debug("optimized: " + optimized_snippet)
+                print_debug("optimized:\n" + optimized_snippet)
             # generate kernel files with original and optimized snippets
             with open(f"{kernel_path}/{kernel_name}.c") as source_kernel_file:
                 # get source code on either side of kernel body
@@ -97,7 +97,7 @@ def main():
                 with open(f"{PROCESSED_SRC_DIR}/{kernel_name}.orig.c", "w+") as original_file:
                     original_file.write(preamble + kernel_snippet_no_signature + postamble)
                 with open(f"{PROCESSED_SRC_DIR}/{kernel_name}.opt.c", "w") as optimized_file:
-                    optimized_file.write(preamble + optimized_snippet + postamble)
+                    optimized_file.write(preamble + optimized_snippet + "}" + postamble)
 
                 # compile files
                 print_debug("compiling executables")
